@@ -31,7 +31,7 @@ checksum = "ef657dfab802224e671f5818e9a4935f9b1957ed18e58292690cc39e7a4092a3"
 
 [[package]]
 name = "fondant"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "bincode",
  "bitvec",
