@@ -12,25 +12,45 @@ pub struct Font {
     pub characters: [Character; 16],
 }
 
+#[derive(thiserror::Error, Debug)]
+pub enum FontError {
+    #[error("Failed to load PNG: {0}")]
+    PngLoadError(String),
+
+    #[error("PNG dimensions must be exactly 16x20")]
+    InvalidSize,
+
+    #[error("Failed to convert image to RGBA: {0}")]
+    ConversionError(String),
+
+    #[error("Failed to serialize/deserialize font: {0}")]
+    BincodeError(String),
+}
+
+#[derive(thiserror::Error, Debug)]
+pub enum PngSizeError {}
+
 impl Font {
-    pub fn from_png(data: &[u8]) -> Result<Self, &'static str> {
+    pub fn from_png(data: &[u8]) -> Result<Self, FontError> {
         // Decode header data
-        let header = minipng::decode_png_header(&data).map_err(|_| "Failed to load PNG")?;
+        let header = minipng::decode_png_header(&data)
+            .map_err(|e| FontError::PngLoadError(e.to_string()))?;
 
         // Check if dimensions are correct
         if header.width() != 16 || header.height() != 20 {
-            return Err("PNG must be exactly 16x20");
+            return Err(FontError::InvalidSize);
         }
 
         // Allocate buffer of size
         let mut buffer = vec![0; header.required_bytes_rgba8bpc()];
 
         // Load png into buffer
-        let mut image =
-            minipng::decode_png(&data, &mut buffer).map_err(|_| "Failed to load PNG")?;
+        let mut image = minipng::decode_png(&data, &mut buffer)
+            .map_err(|e| FontError::PngLoadError(e.to_string()))?;
+
         image
             .convert_to_rgba8bpc()
-            .map_err(|_| "Failed to convert to RGBA")?;
+            .map_err(|e| FontError::ConversionError(e.to_string()))?;
 
         let pixels = image.pixels();
         let mut characters = [Character([0; 5]); 16];
@@ -64,21 +84,23 @@ impl Font {
         Ok(Font { characters })
     }
 
-    pub fn to_bytes(&mut self) -> Vec<u8> {
+    pub fn to_bytes(&mut self) -> Result<Vec<u8>, FontError> {
         let config = bincode::DefaultOptions::new()
             .with_fixint_encoding()
             .with_little_endian();
 
-        config.serialize(self).unwrap()
+        config
+            .serialize(self)
+            .map_err(|e| FontError::BincodeError(e.to_string()))
     }
 
-    pub fn from_bytes(data: &[u8]) -> Result<Self, &'static str> {
+    pub fn from_bytes(data: &[u8]) -> Result<Self, FontError> {
         let config = bincode::DefaultOptions::new()
             .with_fixint_encoding()
             .with_little_endian();
 
-        Ok(config
+        config
             .deserialize(data)
-            .expect("Unable to deserialize font from bytes"))
+            .map_err(|e| FontError::BincodeError(e.to_string()))
     }
 }
