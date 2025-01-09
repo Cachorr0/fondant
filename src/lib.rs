@@ -84,7 +84,7 @@ impl Font {
         Ok(Font { characters })
     }
 
-    pub fn to_bytes(&mut self) -> Result<Vec<u8>, FontError> {
+    pub fn to_bytes(&self) -> Result<Vec<u8>, FontError> {
         let config = bincode::DefaultOptions::new()
             .with_fixint_encoding()
             .with_little_endian();
